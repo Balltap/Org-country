@@ -1,0 +1,113 @@
+name: countryside-map
+
+services:
+  # ---------------------------------------------------------------
+  # แอปหลัก — ไม่เปิดพอร์ตออกสู่ภายนอกโดยตรง
+  # ให้ caddy เป็นด่านหน้าเท่านั้น เพื่อบังคับผ่าน auth + TLS
+  # ---------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: countryside-map:1.0
+    container_name: countryside-app
+    restart: unless-stopped
+    environment:
+      DATA_DIR: /data
+      HOST: 0.0.0.0
+      PORT: "8787"
+      TZ: ${TZ:-Asia/Bangkok}
+    volumes:
+      - app-data:/data
+    expose:
+      - "8787"
+    networks:
+      - web
+    healthcheck:
+      test:
+        - CMD
+        - python3
+        - -c
+        - |
+          import urllib.request,sys
+          r=urllib.request.urlopen('http://127.0.0.1:8787/api/health',timeout=3)
+          sys.exit(0 if r.status==200 else 1)
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------
+  # Reverse proxy — จัดการ HTTPS อัตโนมัติ + Basic Auth
+  # แอปเดิมไม่มีระบบ login ชั้นนี้จึงเป็นด่านป้องกันเดียว ห้ามถอดออก
+  # ---------------------------------------------------------------
+  caddy:
+    image: caddy:2.8-alpine
+    container_name: countryside-caddy
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?ต้องกำหนด SITE_ADDRESS ในไฟล์ .env}
+      BASIC_AUTH_USER: ${BASIC_AUTH_USER:?ต้องกำหนด BASIC_AUTH_USER ในไฟล์ .env}
+      BASIC_AUTH_HASH: ${BASIC_AUTH_HASH:?ต้องกำหนด BASIC_AUTH_HASH ในไฟล์ .env}
+      TZ: ${TZ:-Asia/Bangkok}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - web
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------
+  # สำรองข้อมูลอัตโนมัติ — ใช้ image เดียวกัน แค่เปลี่ยนคำสั่ง
+  # ---------------------------------------------------------------
+  backup:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: countryside-map:1.0
+    container_name: countryside-backup
+    restart: unless-stopped
+    command: ["python3", "backup.py"]
+    environment:
+      DATA_DIR: /data
+      BACKUP_DIR: /backups
+      BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-30}
+      TZ: ${TZ:-Asia/Bangkok}
+    volumes:
+      # ต้องเป็น read-write เพราะ SQLite โหมด WAL ต้องเขียนไฟล์ -shm ได้
+      # backup.py อ่านอย่างเดียว ไม่แก้ข้อมูลจริง
+      - app-data:/data
+      - ./backups:/backups
+    networks:
+      - web
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+volumes:
+  app-data:
+  caddy-data:
+  caddy-config:
+
+networks:
+  web:
+    driver: bridge

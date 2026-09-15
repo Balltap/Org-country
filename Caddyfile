@@ -1,0 +1,28 @@
+# Caddy ทำ HTTPS ให้อัตโนมัติเมื่อ SITE_ADDRESS เป็นชื่อโดเมนจริง
+# ถ้าตั้งเป็น :80 จะรันแบบ HTTP ธรรมดา (ใช้เฉพาะใน LAN เท่านั้น)
+
+{$SITE_ADDRESS} {
+	encode gzip
+
+	# ชั้นป้องกันเดียวของระบบ — แอปเบื้องหลังไม่มี login ของตัวเอง
+	basic_auth {
+		{$BASIC_AUTH_USER} {$BASIC_AUTH_HASH}
+	}
+
+	reverse_proxy app:8787 {
+		health_uri /api/health
+		health_interval 30s
+	}
+
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options SAMEORIGIN
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

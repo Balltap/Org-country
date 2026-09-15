@@ -1,0 +1,13 @@
+countryside.db
+countryside.db-wal
+countryside.db-shm
+*.db
+backups/
+.env
+.git
+.gitignore
+__pycache__/
+*.pyc
+pkg/
+*.zip
+README*.md
