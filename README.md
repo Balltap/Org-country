@@ -141,6 +141,38 @@ issues (
 
 ---
 
+## หน้าเว็บสาธารณะ (GitHub Pages)
+
+`index.html` คือหน้าเว็บฉบับ **อ่านอย่างเดียว** สำหรับให้คนนอกทีมเปิดดูผ่านอินเทอร์เน็ต
+ข้อมูลถูกฝังอยู่ในไฟล์เลย ไม่ต้องมี server ไม่ต่อฐานข้อมูล แก้อะไรไม่ได้
+
+สร้าง/อัปเดตไฟล์นี้ด้วย
+
+```bash
+python build_static.py
+```
+
+สคริปต์จะอ่าน `countryside.db` ตัวจริง + ดึง CSS จาก `countryside_map_db.html`
+(หน้าตาจึงเหมือนหน้าเว็บตัวเต็มเสมอ) แล้วเขียนทับ `index.html` พร้อมประทับวันเวลาที่ดึงข้อมูล
+
+**เปิดใช้ GitHub Pages ครั้งแรก:** ที่ repo บน GitHub → **Settings › Pages** →
+Source เลือก **Deploy from a branch** → Branch **main** / **/(root)** → Save
+รอสักครู่จะได้ลิงก์ `https://<username>.github.io/<repo>/`
+
+**อัปเดตข้อมูลบนเว็บสาธารณะ** — ทำทุกครั้งที่แก้ข้อมูลในระบบแล้วอยากให้เว็บตาม
+
+```bash
+python build_static.py
+git add index.html
+git commit -m "update public map"
+git push
+```
+
+> ⚠️ GitHub Pages บน repo แบบ public = ใครมีลิงก์ก็เปิดได้ และหน้านี้มีชื่อทีมกับขอบเขตงานภายใน
+> ถ้าไม่ต้องการให้เปิดสาธารณะ อย่าเปิด Pages บน repo public
+
+---
+
 ## การสำรองข้อมูล
 
 ข้อมูลทั้งหมดอยู่ในไฟล์เดียวคือ `countryside.db` ก๊อปปี้ไฟล์นี้เก็บไว้ = สำรองเสร็จ
