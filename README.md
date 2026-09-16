@@ -141,32 +141,63 @@ issues (
 
 ---
 
-## หน้าเว็บสาธารณะ (GitHub Pages)
+## เว็บสาธารณะ + เก็บข้อมูลจากทีม (GitHub Pages)
 
-`index.html` คือหน้าเว็บฉบับ **อ่านอย่างเดียว** สำหรับให้คนนอกทีมเปิดดูผ่านอินเทอร์เน็ต
-ข้อมูลถูกฝังอยู่ในไฟล์เลย ไม่ต้องมี server ไม่ต่อฐานข้อมูล แก้อะไรไม่ได้
+ชุดนี้ให้ทุกคนเปิดเว็บ แก้ข้อมูลของตัวเอง แล้วส่งไฟล์กลับมารวม โดยไม่ต้องมี server
 
-สร้าง/อัปเดตไฟล์นี้ด้วย
+| ไฟล์ | หน้าที่ |
+|---|---|
+| `data.json` | ข้อมูลทั้งหมดในรูปแบบ JSON — หน้าเว็บอ่านไฟล์นี้ |
+| `index.html` | หน้าเว็บสาธารณะ อ่าน `data.json` มาแสดง และให้แก้ไขในเครื่องตัวเองได้ |
+| `_template.html` | ต้นแบบของ `index.html` (แก้ดีไซน์/ข้อความหน้าสาธารณะที่ไฟล์นี้) |
+| `build_static.py` | สร้าง `data.json` + `index.html` จาก `countryside.db` |
+| `merge_submissions.py` | รวมไฟล์ที่แต่ละคนส่งกลับ เข้า `countryside.db` |
 
-```bash
-python build_static.py
+### วงจรการทำงาน
+
+```
+countryside.db ──build_static.py──▶ data.json + index.html ──git push──▶ GitHub Pages
+                                                                            │
+                        แต่ละคนเปิดเว็บ แก้ของตัวเอง กดดาวน์โหลด data-ชื่อ.json
+                                                                            │
+countryside.db ◀──merge_submissions.py── ไฟล์ที่ทุกคนส่งกลับ ◀────────────────┘
 ```
 
-สคริปต์จะอ่าน `countryside.db` ตัวจริง + ดึง CSS จาก `countryside_map_db.html`
-(หน้าตาจึงเหมือนหน้าเว็บตัวเต็มเสมอ) แล้วเขียนทับ `index.html` พร้อมประทับวันเวลาที่ดึงข้อมูล
-
-**เปิดใช้ GitHub Pages ครั้งแรก:** ที่ repo บน GitHub → **Settings › Pages** →
-Source เลือก **Deploy from a branch** → Branch **main** / **/(root)** → Save
-รอสักครู่จะได้ลิงก์ `https://<username>.github.io/<repo>/`
-
-**อัปเดตข้อมูลบนเว็บสาธารณะ** — ทำทุกครั้งที่แก้ข้อมูลในระบบแล้วอยากให้เว็บตาม
+### 1. สร้างและอัปเดตเว็บ
 
 ```bash
 python build_static.py
-git add index.html
+git add index.html data.json
 git commit -m "update public map"
 git push
 ```
+
+`build_static.py` ดึง CSS จาก `countryside_map_db.html` ให้เอง หน้าสาธารณะจึงหน้าตาเหมือนหน้าเว็บตัวเต็มเสมอ
+
+**เปิด GitHub Pages ครั้งแรก:** repo บน GitHub → **Settings › Pages** →
+Source = **Deploy from a branch** → Branch **main** / **/(root)** → Save
+ได้ลิงก์ `https://<username>.github.io/<repo>/`
+
+### 2. แต่ละคนแก้ข้อมูลของตัวเอง
+
+เปิดลิงก์ → ใส่ชื่อตัวเอง → กด **เฉพาะงานของฉัน** → คลิกการ์ดเพื่อแก้
+Scope / Out of Scope / KPI และเพิ่มปัญหาที่พบ → กด **⬇ ดาวน์โหลด data.json** → ส่งไฟล์ให้ผู้ประสานงาน
+
+สิ่งที่แก้เก็บไว้ใน localStorage ของเบราว์เซอร์คนนั้นเอง ปิดหน้าแล้วเปิดใหม่ข้อมูลยังอยู่
+คนอื่นไม่เห็นจนกว่าจะรวมไฟล์เข้าระบบ — จึงแก้ได้ทีละคน ไม่ทับกัน
+
+### 3. รวมไฟล์ที่ส่งกลับ
+
+```bash
+python merge_submissions.py --dry-run data-*.json   # ดูก่อนว่าจะเปลี่ยนอะไร
+python merge_submissions.py data-*.json             # เขียนจริง
+python merge_submissions.py submissions/            # ทั้งโฟลเดอร์
+```
+
+- แตะเฉพาะกล่องที่คนนั้น**แก้จริง** (หน้าเว็บติดธง `edited` ไว้) กล่องอื่นในไฟล์เดียวกันไม่ถูกเขียนทับ
+- ปัญหาใหม่ถูกเพิ่มเข้าตาราง `issues` · ปัญหาหัวข้อซ้ำถือเป็นตัวเดียวกัน รวมไฟล์เดิมซ้ำสองรอบก็ไม่เกิดข้อมูลซ้ำ
+- ทุกการเปลี่ยนแปลงบันทึกลง `audit_log` พร้อมชื่อผู้ส่ง ดูย้อนหลังได้ที่ปุ่ม 🕘 History
+- เสร็จแล้วรัน `build_static.py` + push อีกครั้ง เพื่อให้เว็บสาธารณะตรงกับข้อมูลล่าสุด
 
 > ⚠️ GitHub Pages บน repo แบบ public = ใครมีลิงก์ก็เปิดได้ และหน้านี้มีชื่อทีมกับขอบเขตงานภายใน
 > ถ้าไม่ต้องการให้เปิดสาธารณะ อย่าเปิด Pages บน repo public
